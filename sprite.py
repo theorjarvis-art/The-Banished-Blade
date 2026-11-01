@@ -1,4 +1,4 @@
-import pygame 
+import pygame
 from global_variables import *
 
 class SpriteSheet:
@@ -6,23 +6,46 @@ class SpriteSheet:
         self.sheet = sheet
         self.width = width
         self.height = height
-    
-    def get_sprite(self, sheet, width, height):
-        image = pygame.Surface((width, height)).convert_alpha()
-        image.blit(sheet, (0, 0), (0, 0, width, height))
+
+    def get_sprite(self, col, row):
+        """Cut one frame out of the sheet by column and row."""
+        image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        image.blit(self.sheet, (0, 0),
+                   (col * self.width, row * self.height, self.width, self.height))
         return image
+
+    def get_row(self, row, count):
+        return [self.get_sprite(col, row) for col in range(count)]
+
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
         self.groups = game.all_sprites
         pygame.sprite.Sprite.__init__(self, self.groups)
         self.game = game
-        self.image = pygame.Surface((TILESIZE, TILESIZE))
-        self.image.fill(YELLOW)
+
+        # --- animation setup ---
+        sheet_image = pygame.image.load(PLAYER_SHEET).convert_alpha()
+        sheet = SpriteSheet(sheet_image, FRAME_W, FRAME_H)
+        size = (int(FRAME_W * PLAYER_SCALE), int(FRAME_H * PLAYER_SCALE))
+        self.animations = {
+            "down": [pygame.transform.scale(f, size) for f in sheet.get_row(ROW_DOWN, FRAMES_PER_ROW)],
+            "left": [pygame.transform.scale(f, size) for f in sheet.get_row(ROW_LEFT, FRAMES_PER_ROW)],
+            "right": [pygame.transform.scale(f, size) for f in sheet.get_row(ROW_RIGHT, FRAMES_PER_ROW)],
+            "up": [pygame.transform.scale(f, size) for f in sheet.get_row(ROW_UP, FRAMES_PER_ROW)],
+        }
+        self.facing = "down"
+        self.frame = 0
+        self.anim_timer = 0
+        self.moving = False
+
+        self.image = self.animations[self.facing][0]
         self.rect = self.image.get_rect()
+
         self.vx, self.vy = 0, 0
         self.x = x * TILESIZE
         self.y = y * TILESIZE
+        self.rect.topleft = (self.x, self.y)
 
     def get_keys(self):
         self.vx, self.vy = 0, 0
@@ -38,6 +61,33 @@ class Player(pygame.sprite.Sprite):
         if self.vx != 0 and self.vy != 0:
             self.vx *= 0.7071
             self.vy *= 0.7071
+
+    def animate(self):
+        self.moving = self.vx != 0 or self.vy != 0
+
+     
+        if self.vx < 0:
+            self.facing = "left"
+        elif self.vx > 0:
+            self.facing = "right"
+        elif self.vy < 0:
+            self.facing = "up"
+        elif self.vy > 0:
+            self.facing = "down"
+
+        frames = self.animations[self.facing]
+
+        if self.moving:
+            self.anim_timer += self.game.dt
+            if self.anim_timer >= ANIM_TIME:
+                self.anim_timer = 0
+                self.frame = (self.frame + 1) % len(frames)
+        else:
+            
+            self.frame = 0
+            self.anim_timer = 0
+
+        self.image = frames[self.frame]
 
     def collide_with_walls(self, dir):
         if dir == 'x':
@@ -61,9 +111,15 @@ class Player(pygame.sprite.Sprite):
 
     def update(self):
         self.get_keys()
+        self.animate()   # uses the velocity before collisions zero it out
         self.x += self.vx * self.game.dt
         self.y += self.vy * self.game.dt
         self.rect.x = self.x
         self.collide_with_walls('x')
         self.rect.y = self.y
         self.collide_with_walls('y')
+
+        # keep the player inside the map
+        self.x = max(0, min(self.x, self.game.map.width - self.rect.width))
+        self.y = max(0, min(self.y, self.game.map.height - self.rect.height))
+        self.rect.topleft = (self.x, self.y)
