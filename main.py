@@ -1,13 +1,10 @@
 import pygame
 
-# ---------- Global Variables ---------- #
-SCREEN_WIDTH = 1280
-SCREEN_HEIGHT = 720
-# -------------------------------------- #
-
 # ---------- File Imports ---------- #
 from game_state import GameState
 from buttons import Button
+from sprite import SpriteSheet
+from global_variables import *
 # ---------------------------------- #
 
 # ----------- Pygame Initialization ----------- #
@@ -40,15 +37,19 @@ game_state = GameState(
     back_button
 )
 
+
+
 # ------------- Game Loop ------------- #
 while game_state.running:
+    game_state.dt = clock.tick(60) / 1000
+    #event handeler
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             game_state.running = False
         game_state.handle_game_state(event)
 
+    game_state.update()
     game_state.draw(screen)
     pygame.display.flip()
-    clock.tick(60)
 
 pygame.quit()
