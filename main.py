@@ -3,7 +3,6 @@ import pygame
 # ---------- File Imports ---------- #
 from game_state import GameState
 from buttons import Button
-from sprite import SpriteSheet
 from global_variables import *
 # ---------------------------------- #
 
